@@ -28,11 +28,11 @@ I tested the app manually, and for every bug I found, I checked if it was found 
 
 | Edge Case | Prompt Used | AI-Suggested Test | Did It Pass? | Your Reasoning |
 |-----------|-------------|-------------------|--------------|----------------|
-| Decimal input `"12.9"` | create pytests for all the bugs in bugs.md | `test_parse_decimal_is_rejected_not_silently_truncated` | ✅ after fix | Decimals should be rejected, not silently truncated to `12`. |
-| Guess above the secret | create pytests for all the bugs in bugs.md | `test_check_guess_too_high_says_too_high` | ✅ after fix | The hint direction was inverted; a high guess must read "Too High". |
-| `100` vs `9` comparison | create pytests for all the bugs in bugs.md | `test_check_guess_uses_numeric_not_lexicographic_comparison` | ✅ after fix | `str()` conversion made `"100" < "9"`; comparison must be numeric. |
-| Empty / invalid guess | create pytests for all the bugs in bugs.md | `test_empty_guess_does_not_consume_attempt_or_history` | ✅ after fix | Attempts were incremented before validation, so junk input cost a turn. |
-| New Game after a win | create pytests for all the bugs in bugs.md | `test_new_game_resets_state_after_win` | ✅ after fix | New Game left `status`/`score`/`history` stale, locking the player out. |
+| Decimal input `"12.9"` | create pytests for all the bugs in bugs.md | `test_parse_decimal_is_rejected_not_silently_truncated` | [X] after fix | Decimals should be rejected, not silently truncated to `12`. |
+| Guess above the secret | create pytests for all the bugs in bugs.md | `test_check_guess_too_high_says_too_high` | [X] after fix | The hint direction was inverted; a high guess must read "Too High". |
+| `100` vs `9` comparison | create pytests for all the bugs in bugs.md | `test_check_guess_uses_numeric_not_lexicographic_comparison` | [X] after fix | `str()` conversion made `"100" < "9"`; comparison must be numeric. |
+| Empty / invalid guess | create pytests for all the bugs in bugs.md | `test_empty_guess_does_not_consume_attempt_or_history` | [X] after fix | Attempts were incremented before validation, so junk input cost a turn. |
+| New Game after a win | create pytests for all the bugs in bugs.md | `test_new_game_resets_state_after_win` |[X] after fix | New Game left `status`/`score`/`history` stale, locking the player out. |
 
 ---
 
