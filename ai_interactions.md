@@ -10,15 +10,15 @@
 
 **What task did you give the agent?**
 
-<!-- Describe the goal you asked the agent to accomplish -->
+Scan this repo for bugs and create a bugs.md file with the list of bugs. Also use the app to find the bugs in app.
 
 **What did the agent do?**
 
-<!-- List the steps the agent took (files edited, commands run, etc.) -->
+The agent identified syntax and logic bugs and started adding them to a bugs.md file, then ran the app in its preview tab and added the bugs found in the run time. In follow-up prompts I had it go further: generate pytest tests for every bug in bugs.md (red first), then fix all 14 bugs by moving the logic into `logic_utils.py` and rewriting `app.py`. The full suite ended green (**31 passed**).
 
 **What did you have to verify or fix manually?**
 
-<!-- Describe anything the agent got wrong or that required human review -->
+I tested the app manually, and for every bug I found, I checked if it was found by the agent.
 
 ---
 
@@ -28,11 +28,11 @@
 
 | Edge Case | Prompt Used | AI-Suggested Test | Did It Pass? | Your Reasoning |
 |-----------|-------------|-------------------|--------------|----------------|
-| Decimal input `"12.9"` | create pytests for all the bugs in bugs.md | `test_parse_decimal_is_rejected_not_silently_truncated` | [X] | Decimals should be rejected, not silently truncated to `12`. |
-| Guess above the secret | create pytests for all the bugs in bugs.md | `test_guess_too_high` | [X] | The hint direction was inverted; a high guess must read "Too High". |
-| Difficulty → range map | add tests for the helpers the ponytail audit flagged untested | `test_range_per_difficulty` | [X] | Easy/Normal/Hard must map to `(1,20)`/`(1,100)`/`(1,50)`. |
-| Win score rewards speed | add tests for the helpers the ponytail audit flagged untested | `test_update_score_win_rewards_fewer_attempts_more` | [X] | Earlier wins score higher: `max(10, 100 − 10·attempt)`. |
-| Win score floor | add tests for the helpers the ponytail audit flagged untested | `test_update_score_win_reward_floors_at_10` | [X] | Many attempts can't drive the win reward below `10`. |
+| Decimal input `"12.9"` | create pytests for all the bugs in bugs.md | `test_parse_decimal_is_rejected_not_silently_truncated` | [X] after fix | Decimals should be rejected, not silently truncated to `12`. |
+| Guess above the secret | create pytests for all the bugs in bugs.md | `test_check_guess_too_high_says_too_high` | [X] after fix | The hint direction was inverted; a high guess must read "Too High". |
+| `100` vs `9` comparison | create pytests for all the bugs in bugs.md | `test_check_guess_uses_numeric_not_lexicographic_comparison` | [X] after fix | `str()` conversion made `"100" < "9"`; comparison must be numeric. |
+| Empty / invalid guess | create pytests for all the bugs in bugs.md | `test_empty_guess_does_not_consume_attempt_or_history` | [X] after fix | Attempts were incremented before validation, so junk input cost a turn. |
+| New Game after a win | create pytests for all the bugs in bugs.md | `test_new_game_resets_state_after_win` |[X] after fix | New Game left `status`/`score`/`history` stale, locking the player out. |
 
 ---
 
@@ -42,48 +42,41 @@
 
 **Prompt used:**
 
-```
-/ponytail-audit
+```txt
+/ponytail:ponytail-audit — repo-wide scan for over-engineering (dead code,
+unused dependencies, reinvented stdlib, speculative flexibility). Ranked
+findings, report-only.
 ```
 
-**Audit output:**
+**Audit findings (ranked, biggest cut first):**
 
-`/ponytail-audit` is an over-engineering audit, not a warning-based linter — a
-ranked list of dead flexibility / speculative code, biggest cut first. Whole-tree
-scan:
+| # | Tag | What to cut | Replacement | Location |
+|---|-----|-------------|-------------|----------|
+| 1 | delete | `tests/test_game_logic.py` — its 3 tests duplicate `test_check_guess_win/too_high/too_low` | nothing | `tests/test_game_logic.py` |
+| 2 | delete | `altair<5` pin — no charts, no `import altair`; Streamlit ships altair transitively | drop the line | `requirements.txt` |
+| 3 | yagni | `get_range_for_difficulty`'s `.get(difficulty, (1,100))` fallback for a 3-key selectbox | `return ranges[difficulty]` (+ drop `test_range_unknown`) | `logic_utils.py:8` |
+| 4 | shrink | `parse_guess` returns `(ok, value, err)`; `ok` is just `err is None` (three signals for two states) | return `(value, err)` | `logic_utils.py:11` |
+| 5 | delete | `update_score`'s final `return current_score` — `outcome` is always Win/Too High/Too Low, branch never fires | drop the dead branch | `logic_utils.py:41` |
 
-```
-shrink: parse_guess returns (ok, value, err); `ok` is just `err is None`. 3-tuple -> 2-tuple (value, err); caller uses `if err`.   [logic_utils.py:7, app.py:208]
-yagni:  get_range_for_difficulty `.get(difficulty, (1, 100))` fallback — the selectbox only emits Easy/Normal/Hard, all keyed. -> ranges[difficulty].   [logic_utils.py:4]
-yagni:  pct `... if attempt_limit else 0` guard — attempt_limit_map[difficulty] is always >= 5, never 0. Drop the guard.   [app.py:187]
-net: ~0 lines, -0 deps possible — 1 contract shrink + 2 dead-flexibility trims; the tree is otherwise lean.
-```
+**net: -24 lines, -1 dependency possible.**
 
 **Changes applied:**
 
-All three. The contract shrink (#1) and its single caller changed in lockstep;
-trims #2 and #3 are local one-liners:
+Applied the safe trio — #1, #2, #5:
 
-| # | Change | Files touched |
-|---|--------|---------------|
-| 1 | `parse_guess` 3-tuple `(ok, value, err)` → 2-tuple `(value, err)`; caller now branches on `if err`; docstring updated | `logic_utils.py`, `app.py` |
-| 2 | `get_range_for_difficulty` `.get(difficulty, (1, 100))` → `ranges[difficulty]` | `logic_utils.py` |
-| 3 | Dropped the `... if attempt_limit else 0` guard on `pct` | `app.py` |
+- **#1** Deleted `tests/test_game_logic.py` (3 tests duplicated `test_logic_utils.py`).
+- **#2** Removed the `altair<5` pin from `requirements.txt` (unused; Streamlit ships altair transitively).
+- **#5** Collapsed `update_score`'s dead `return current_score` and the redundant `if outcome in (...)` guard into a single `return current_score - 5` fallback.
 
-**Net:** ~-2 lines, -0 dependencies — these are dead-flexibility/contract trims,
-not bulk deletions.
+Then applied the contract-touching pair — #3 and #4 — across source + tests in lockstep:
 
-**Verification:** `app.py` and `logic_utils.py` compile clean; the only
-`parse_guess` call site (`app.py:208`) was confirmed and updated. Suite green:
-`11 passed` (`.venv/bin/python -m pytest tests/`).
+- **#3** Replaced `get_range_for_difficulty`'s `.get(difficulty, (1,100))` with `ranges[difficulty]` (the selectbox only emits the 3 known keys); dropped the now-invalid `test_range_unknown_falls_back_to_a_valid_range`.
+- **#4** Shrank `parse_guess` from `(ok, value, err)` to `(value, err)` — `ok` was just `err is None`. Updated the unpack at `app.py:80` (`if err:`) and all five `parse_guess` assertions in `test_logic_utils.py`.
 
-**Follow-up (correctness, beyond the audit):** closed the flagged coverage gap —
-`parse_guess`, `update_score`, and `get_range_for_difficulty` now have tests (see
-SF7), taking the suite from 3 to 11. While adding the `parse_guess` test, the
-documented "reject decimals" contract ([README](README.md): "no silent decimal
-truncation") didn't match the code — `int(float("12.9"))` truncated to `12`.
-Fixed it to `int("12.9")`, which rejects decimals outright, locked in with
-`test_parse_decimal_is_rejected_not_silently_truncated`.
+Net applied (all five): **~-23 lines, -1 dependency.**
+
+**Suite after:** `27 passed` (31 → 28 after dropping 3 duplicate tests → 27
+after retiring the speculative unknown-key test). No real coverage lost.
 
 ---
 
@@ -95,12 +88,12 @@ Fixed it to `int("12.9")`, which rejects decimals outright, locked in with
 
 <!-- Describe what you asked each model to do -->
 
-| | Model A | Model B |
-|-|---------|---------|
-| **Model name** | | |
-| **Response summary** | | |
-| **More Pythonic?** | | |
-| **Clearer explanation?** | | |
+|                          | Model A | Model B |
+|--------------------------|---------|---------|
+|      **Model name**      |         |         |
+|   **Response summary**   |         |         |
+|    **More Pythonic?**    |         |         |
+| **Clearer explanation?** |         |         |
 
 **Which did you prefer and why?**
 

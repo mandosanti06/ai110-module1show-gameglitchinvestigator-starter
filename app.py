@@ -208,6 +208,8 @@ if submit and playing:
     guess_int, err = parse_guess(raw_guess)
     if err:
         st.session_state.last = {"kind": "error", "title": err.upper(), "detail": ""}
+    elif not (low <= guess_int <= high):  # bug #13: reject out-of-range guesses
+        st.session_state.last = {"kind": "error", "title": "OUT OF RANGE", "detail": f"ENTER {low}–{high}"}
     else:
         st.session_state.attempts += 1
         outcome = check_guess(guess_int, st.session_state.secret)
