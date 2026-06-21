@@ -184,7 +184,7 @@ st.markdown(
     f'</div>',
     unsafe_allow_html=True,
 )
-pct = min(100, int(100 * st.session_state.attempts / attempt_limit)) if attempt_limit else 0
+pct = min(100, int(100 * st.session_state.attempts / attempt_limit))
 st.markdown(f'<div class="track"><div class="fill" style="width:{pct}%"></div></div>', unsafe_allow_html=True)
 
 # ---- Input + actions --------------------------------------------------------
@@ -205,8 +205,8 @@ if new_game:
     st.rerun()
 
 if submit and playing:
-    ok, guess_int, err = parse_guess(raw_guess)
-    if not ok:
+    guess_int, err = parse_guess(raw_guess)
+    if err:
         st.session_state.last = {"kind": "error", "title": err.upper(), "detail": ""}
     else:
         st.session_state.attempts += 1
