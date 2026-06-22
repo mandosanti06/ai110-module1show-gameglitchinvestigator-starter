@@ -53,14 +53,15 @@ Sample round (secret = 63):
 
 ## 🧪 Test Results
 
-```batch
+```text
 $ pytest tests/
 platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0
-collected 11 items
+collected 27 items
 
-tests/test_game_logic.py ...........                                     [100%]
+tests/test_app_state.py .........                                        [ 33%]
+tests/test_logic_utils.py ..................                             [100%]
 
-============================== 11 passed in 0.01s ==============================
+============================== 27 passed in 0.70s ==============================
 ```
 
 ## 🚀 Stretch: Enhanced UI (Challenge 4)
