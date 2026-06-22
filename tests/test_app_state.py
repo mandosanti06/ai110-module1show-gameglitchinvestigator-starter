@@ -13,13 +13,19 @@ def fresh():
     return AppTest.from_file("app.py").run()
 
 
+def rendered_md(at):
+    """Concatenated text of every markdown block (the redesigned UI renders
+    score/guesses-left/range as HTML stat blocks via st.markdown, not st.info)."""
+    return "".join(m.value for m in at.markdown)
+
+
 # --- bug #4: attempt counter starts at 1 instead of 0 ---
 
 def test_fresh_game_starts_with_full_attempts():
     at = fresh()
     assert at.session_state["attempts"] == 0
     # Normal mode allows 8 attempts; a fresh game must advertise all of them.
-    assert "Attempts left: 8" in at.info[0].value
+    assert 'Guesses left</div><div class="val">8</div>' in rendered_md(at)
 
 
 # --- bug #5: invalid guesses consume attempts and pollute history ---
@@ -82,9 +88,10 @@ def test_changing_difficulty_revalidates_secret():
 def test_prompt_reflects_selected_range():
     at = fresh()
     at.selectbox[0].set_value("Easy").run()
-    prompt = at.info[0].value
-    assert "20" in prompt
-    assert "100" not in prompt
+    md = rendered_md(at)
+    # Easy is 1-20; the range must reflect the selection, never the Normal 1-100.
+    assert 'Range</div><div class="val">1&ndash;20</div>' in md
+    assert 'Range</div><div class="val">1&ndash;100</div>' not in md
 
 
 # --- bug #11: debug panel reveals the secret during play ---
